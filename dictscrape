@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+import requests
+import string
+import sys
+from bs4 import BeautifulSoup
+
+
+def main():
+    try:
+        url = sys.argv[1]
+    except IndexError:
+        print('Usage: dictscrape URL')
+        sys.exit(1)
+
+    known_words = set()
+    new_words = set()
+
+    with open('dictionary') as my_dictionary:
+        for word in my_dictionary.readlines():
+            known_words.add(word.strip().lower())
+
+    with open('rejects') as rejects:
+        for word in rejects.readlines():
+            known_words.add(word.strip().lower())
+
+    with open('/usr/share/dict/british-english') as english_dictionary:
+        for word in english_dictionary.readlines():
+            known_words.add(word.strip().lower())
+
+    with open('/usr/share/dict/american-english') as american_dictionary:
+        for word in american_dictionary.readlines():
+            known_words.add(word.strip().lower())
+
+    html = requests.get(url).text
+    soup = BeautifulSoup(html, 'html.parser')
+    for script in soup(["script", "style"]):
+        script.extract()    # rip it out
+
+    for word in soup.get_text().split():
+        if any([char not in string.ascii_letters for char in word]):
+            continue
+
+        if word.lower() not in known_words:
+            new_words.add(word)
+
+    new_words = sorted(list(new_words))
+    with open('dictionary', 'a') as my_dictionary, open('rejects', 'a') as rejects:
+        for word in new_words:
+            keep = input(f'Add: {word} ? [(Y)es (n)o (d)owncase (s)kip]')
+            if keep == 'n':
+                rejects.write(f'{word}\n')
+            elif keep == 'd':
+                my_dictionary.write(f'{word.lower()}\n')
+            elif keep == 's':
+                pass
+            else:
+                my_dictionary.write(f'{word}\n')
+
+
+if __name__ == '__main__':
+    main()
